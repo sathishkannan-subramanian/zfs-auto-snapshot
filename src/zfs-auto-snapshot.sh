@@ -20,7 +20,7 @@
 #
 
 # Set the field separator to a literal tab and newline.
-IFS="	
+IFS="
 "
 
 # Set default program options.
@@ -75,7 +75,7 @@ print_usage ()
   -v, --verbose      Print info messages.
       --destroy-only Only destroy older snapshots, do not create new ones.
       name           Filesystem and volume names, or '//' for all ZFS datasets.
-" 
+"
 }
 
 
@@ -443,7 +443,7 @@ done
 ZPOOLS_SCRUBBING=$(echo "$ZPOOL_STATUS" | awk -F ': ' \
   '$1 ~ /^ *pool$/ { pool = $2 } ; \
    $1 ~ /^ *scan$/ && $2 ~ /scrub in progress/ { print pool }' \
-  | sort ) 
+  | sort )
 
 # Get a list of pools that cannot do a snapshot.
 ZPOOLS_NOTREADY=$(echo "$ZPOOL_STATUS" | awk -F ': ' \
@@ -476,106 +476,111 @@ TARGETS_REGULAR=''
 
 for ii in $CANDIDATES
 do
-	# Qualify dataset names so variable globbing works properly.
-	# Suppose ii=tanker/foo and jj=tank sometime during the loop.
-	# Just testing "$ii" != ${ii#$jj} would incorrectly match.
-	iii="$ii/"
+    # Qualify dataset names so variable globbing works properly.
+    # Suppose ii=tanker/foo and jj=tank sometime during the loop.
+    # Just testing "$ii" != ${ii#$jj} would incorrectly match.
+    iii="$ii/"
 
+    # Exclude datasets that match the datapool/CDRSNAP-* pattern
+    if echo "$ii" | grep -q '^datapool/CDRSNAP-*'; then
+        print_log debug "Excluding $ii based on pattern."
+        continue
+    fi
 
-	# Exclude datasets
-	# * that are not named on the command line or
-	# * those whose prefix is not on the command line (if --recursive flag is set)
-	IN_ARGS='0'
-	for jj in "$@"
-	do
-		# Ibid regarding iii.
-		jjj="$jj/"
+    # Exclude datasets
+    # * that are not named on the command line or
+    # * those whose prefix is not on the command line (if --recursive flag is set)
+    IN_ARGS='0'
+    for jj in "$@"
+    do
+        # Ibid regarding iii.
+        jjj="$jj/"
 
-		if [ "$jj" = '//' -o "$jj" = "$ii" ]
-		then
-			IN_ARGS=$(( $IN_ARGS + 1 ))
-		elif [ -n "$opt_recursive" -a "$iii" != "${iii#$jjj}" ]
-		then
-			IN_ARGS=$(( $IN_ARGS + 1 ))
-		fi
-	done
-	if [ "$IN_ARGS" -eq '0' ]
-	then
-		continue
-	fi
+        if [ "$jj" = '//' -o "$jj" = "$ii" ]
+        then
+            IN_ARGS=$(( $IN_ARGS + 1 ))
+        elif [ -n "$opt_recursive" -a "$iii" != "${iii#$jjj}" ]
+        then
+            IN_ARGS=$(( $IN_ARGS + 1 ))
+        fi
+    done
+    if [ "$IN_ARGS" -eq '0' ]
+    then
+        continue
+    fi
 
-	# Exclude datasets in pools that cannot do a snapshot.
-	for jj in $ZPOOLS_NOTREADY
-	do
-		# Ibid regarding iii.
-		jjj="$jj/"
+    # Exclude datasets in pools that cannot do a snapshot.
+    for jj in $ZPOOLS_NOTREADY
+    do
+        # Ibid regarding iii.
+        jjj="$jj/"
 
-		# Check whether the pool name is a prefix of the dataset name.
-		if [ "$iii" != "${iii#$jjj}" ]
-		then
-			print_log info "Excluding $ii because pool $jj is not ready."
-			continue 2
-		fi
-	done
+        # Check whether the pool name is a prefix of the dataset name.
+        if [ "$iii" != "${iii#$jjj}" ]
+        then
+            print_log info "Excluding $ii because pool $jj is not ready."
+            continue 2
+        fi
+    done
 
-	# Exclude datasets in scrubbing pools if the --skip-scrub flag is set.
-	test -n "$opt_skip_scrub" && for jj in $ZPOOLS_SCRUBBING
-	do
-		# Ibid regarding iii.
-		jjj="$jj/"
+    # Exclude datasets in scrubbing pools if the --skip-scrub flag is set.
+    test -n "$opt_skip_scrub" && for jj in $ZPOOLS_SCRUBBING
+    do
+        # Ibid regarding iii.
+        jjj="$jj/"
 
-		# Check whether the pool name is a prefix of the dataset name.
-		if [ "$iii" != "${iii#$jjj}" ]
-		then
-			print_log info "Excluding $ii because pool $jj is scrubbing."
-			continue 2
-		fi
-	done
+        # Check whether the pool name is a prefix of the dataset name.
+        if [ "$iii" != "${iii#$jjj}" ]
+        then
+            print_log info "Excluding $ii because pool $jj is scrubbing."
+            continue 2
+        fi
+    done
 
-	for jj in $NOAUTO
-	do
-		# Ibid regarding iii.
-		jjj="$jj/"
+    for jj in $NOAUTO
+    do
+        # Ibid regarding iii.
+        jjj="$jj/"
 
-		# The --recursive switch only matters for non-wild arguments.
-		if [ -z "$opt_recursive" -a "$1" != '//' ]
-		then
-			# Snapshot this dataset non-recursively.
-			print_log debug "Including $ii for regular snapshot."
-			TARGETS_REGULAR="${TARGETS_REGULAR:+$TARGETS_REGULAR	}$ii" # nb: \t
-			continue 2
-		# Check whether the candidate name is a prefix of any excluded dataset name.
-		elif [ "$jjj" != "${jjj#$iii}" ]
-		then
-			# Snapshot this dataset non-recursively.
-			print_log debug "Including $ii for regular snapshot."
-			TARGETS_REGULAR="${TARGETS_REGULAR:+$TARGETS_REGULAR	}$ii" # nb: \t
-			continue 2
-		fi
-	done
+        # The --recursive switch only matters for non-wild arguments.
+        if [ -z "$opt_recursive" -a "$1" != '//' ]
+        then
+            # Snapshot this dataset non-recursively.
+            print_log debug "Including $ii for regular snapshot."
+            TARGETS_REGULAR="${TARGETS_REGULAR:+$TARGETS_REGULAR    }$ii" # nb: \t
+            continue 2
+        # Check whether the candidate name is a prefix of any excluded dataset name.
+        elif [ "$jjj" != "${jjj#$iii}" ]
+        then
+            # Snapshot this dataset non-recursively.
+            print_log debug "Including $ii for regular snapshot."
+            TARGETS_REGULAR="${TARGETS_REGULAR:+$TARGETS_REGULAR    }$ii" # nb: \t
+            continue 2
+        fi
+    done
 
-	for jj in $TARGETS_RECURSIVE
-	do
-		# Ibid regarding iii.
-		jjj="$jj/"
+    for jj in $TARGETS_RECURSIVE
+    do
+        # Ibid regarding iii.
+        jjj="$jj/"
 
-		# Check whether any included dataset is a prefix of the candidate name.
-		if [ "$iii" != "${iii#$jjj}" ]
-		then
-			print_log debug "Excluding $ii because $jj includes it recursively."
-			continue 2
-		fi
-	done
+        # Check whether any included dataset is a prefix of the candidate name.
+        if [ "$iii" != "${iii#$jjj}" ]
+        then
+            print_log debug "Excluding $ii because $jj includes it recursively."
+            continue 2
+        fi
+    done
 
-	# Append this candidate to the recursive snapshot list because it:
-	#
-	#   * Does not have an exclusionary property.
-	#   * Is in a pool that can currently do snapshots.
-	#   * Does not have an excluded descendent filesystem.
-	#   * Is not the descendant of an already included filesystem.
-	#
-	print_log debug "Including $ii for recursive snapshot."
-	TARGETS_RECURSIVE="${TARGETS_RECURSIVE:+$TARGETS_RECURSIVE	}$ii" # nb: \t
+    # Append this candidate to the recursive snapshot list because it:
+    #
+    #   * Does not have an exclusionary property.
+    #   * Is in a pool that can currently do snapshots.
+    #   * Does not have an excluded descendent filesystem.
+    #   * Is not the descendant of an already included filesystem.
+    #
+    print_log debug "Including $ii for recursive snapshot."
+    TARGETS_RECURSIVE="${TARGETS_RECURSIVE:+$TARGETS_RECURSIVE    }$ii" # nb: \t
 done
 
 # Linux lacks SMF and the notion of an FMRI event, but always set this property
