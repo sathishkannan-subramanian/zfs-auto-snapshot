@@ -19,3 +19,7 @@ wget https://github.com/zfsonlinux/zfs-auto-snapshot/archive/upstream/1.2.4.tar.
 tar -xzf 1.2.4.tar.gz
 cd zfs-auto-snapshot-upstream-1.2.4
 make install
+
+Dataset Exclude other options:
+
+After the installation, open the /usr/local/sbin/zfs-auto-snapshot file and update the line number 485 to change the dataset name from datapool to data or any other dataset name that is present in your system.
